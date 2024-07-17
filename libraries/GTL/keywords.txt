@@ -1,0 +1,30 @@
+#######################################
+# Syntax Coloring Map For GTL
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+GTL	KEYWORD1
+array_copy	KEYWORD1
+array_shared	KEYWORD1
+array_uniq	KEYWORD1
+fifo_ext	KEYWORD1
+fifo_static	KEYWORD1
+ptr_shared	KEYWORD1
+ptr_uniq	KEYWORD1
+stack_ext	KEYWORD1
+stack_static	KEYWORD1
+stack_uniq	KEYWORD1
+stack_shared	KEYWORD1
+stack_copy	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+
+#######################################
+# Constants (LITERAL1)
+#######################################

@@ -1,0 +1,4 @@
+lib_deps = 
+    https://github.com/GyverLibs/Settings.git
+    https://github.com/prenticedavid/Adafruit_ST7796S_kbv.git
+    https://github.com/adafruit/Adafruit-GFX-Library.git
