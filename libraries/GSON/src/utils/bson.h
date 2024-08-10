@@ -6,15 +6,17 @@
 
 // бинарный JSON, может распаковываться в обычный. Структура данных:
 /*
-0 key code: [code msb5] + [code8]
-1 key str: [len msb5] + [len8] + [...]
-2 val code: [code msb5] + [code8]
-3 val str: [len msb5] + [len8] + [...]
-4 val int: [sign1 + len4]
-5 val float: [dec5]
-6 open: [1obj / 0arr]
-7 close: [1obj / 0arr]
+0 key code: [code msb:5] + [code:8]
+1 key str: [len msb:5] + [len:8] + [...]
+2 val code: [code msb:5] + [code:8]
+3 val str: [len msb:5] + [len:8] + [...]
+4 val int: [sign:1 + len:4]
+5 val float: [dec:5]
+6 cont: [obj:1 / arr:0] [open:1 / close:0]
+7 bin: [len msb:5] + [len:8] + [...]
 */
+
+#define BS_MAX_LEN ((size_t)0b0001111111111111)
 
 #define BS_KEY_CODE (0 << 5)
 #define BS_KEY_STR (1 << 5)
@@ -22,18 +24,22 @@
 #define BS_VAL_STR (3 << 5)
 #define BS_VAL_INT (4 << 5)
 #define BS_VAL_FLOAT (5 << 5)
-#define BS_CONT_OPEN (6 << 5)
-#define BS_CONT_CLOSE (7 << 5)
+#define BS_CONTAINER (6 << 5)
+#define BS_BINARY (7 << 5)
+
+#define BS_CONT_OBJ (1 << 4)
+#define BS_CONT_ARR (0 << 4)
+#define BS_CONT_OPEN (1 << 3)
+#define BS_CONT_CLOSE (0 << 3)
 
 #define BS_NEGATIVE (0b00010000)
-#define BS_CONT_OBJ (1)
-#define BS_CONT_ARR (0)
 #define BS_MSB5(x) ((x >> 8) & 0b00011111)
 #define BS_LSB5(x) (x & 0b00011111)
 #define BS_LSB(x) (x & 0xff)
 
 class BSON : private gtl::stack_uniq<uint8_t> {
    public:
+    using gtl::stack_uniq<uint8_t>::write;
     using gtl::stack_uniq<uint8_t>::reserve;
     using gtl::stack_uniq<uint8_t>::length;
     using gtl::stack_uniq<uint8_t>::buf;
@@ -238,9 +244,32 @@ class BSON : private gtl::stack_uniq<uint8_t> {
         _text(text, BS_VAL_STR);
     }
 
+    // bin
+    void addBin(const void* data, size_t size) {
+        if (size > BS_MAX_LEN) return;
+        beginBin(size);
+        write((const uint8_t*)data, size);
+    }
+    void addBin(const Text& key, const void* data, size_t size) {
+        if (size > BS_MAX_LEN) return;
+        addKey(key);
+        addBin(data, size);
+    }
+    void addBin(uint16_t key, const void* data, size_t size) {
+        if (size > BS_MAX_LEN) return;
+        addKey(key);
+        addBin(data, size);
+    }
+    bool beginBin(uint16_t size) {
+        if (size > BS_MAX_LEN) return false;
+        push(BS_BINARY | BS_MSB5(size));
+        push(BS_LSB(size));
+        return true;
+    }
+
     // object
     void beginObj() {
-        push(BS_CONT_OPEN | BS_CONT_OBJ);
+        push(BS_CONTAINER | BS_CONT_OBJ | BS_CONT_OPEN);
     }
     void beginObj(uint16_t key) {
         reserve(length() + 4);
@@ -252,12 +281,12 @@ class BSON : private gtl::stack_uniq<uint8_t> {
         beginObj();
     }
     void endObj() {
-        push(BS_CONT_CLOSE | BS_CONT_OBJ);
+        push(BS_CONTAINER | BS_CONT_OBJ | BS_CONT_CLOSE);
     }
 
     // array
     void beginArr() {
-        push(BS_CONT_OPEN | BS_CONT_ARR);
+        push(BS_CONTAINER | BS_CONT_ARR | BS_CONT_OPEN);
     }
     void beginArr(uint16_t key) {
         reserve(length() + 4);
@@ -269,15 +298,16 @@ class BSON : private gtl::stack_uniq<uint8_t> {
         beginArr();
     }
     void endArr() {
-        push(BS_CONT_CLOSE | BS_CONT_ARR);
+        push(BS_CONTAINER | BS_CONT_ARR | BS_CONT_CLOSE);
     }
 
    private:
     void _text(const Text& text, uint8_t type) {
-        reserve(length() + text.length() + 3);
-        push(type | BS_MSB5(text.length()));
-        push(BS_LSB(text.length()));
-        concat((uint8_t*)text.str(), text.length(), text.pgm());
+        uint16_t len = min((size_t)text.length(), BS_MAX_LEN);
+        reserve(length() + len + 3);
+        push(type | BS_MSB5(len));
+        push(BS_LSB(len));
+        concat((const uint8_t*)text.str(), len, text.pgm());
     }
     uint8_t _uintSize(uint32_t val) {
         switch (val) {

@@ -3,6 +3,7 @@
 #pragma once
 #include <Arduino.h>
 #include <GyverHTTP.h>
+#include <LittleFS.h>
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -10,24 +11,61 @@
 #include <WiFi.h>
 #endif
 
-#ifndef SETT_NO_DNS
-#include <DNSServer.h>
-#endif
-
 #include "SettingsBase.h"
+#include "core/DnsWrapper.h"
+#include "core/fs.h"
+#include "core/ota.h"
 #include "web/settings.h"
 
-class SettingsGyver : public SettingsBase {
+class SettingsGyver : public sets::SettingsBase {
    public:
-    SettingsGyver(const String& title = "", GyverDB* db = nullptr) : SettingsBase(title, db), server(80) {}
+    SettingsGyver(const String& title = "", GyverDB* db = nullptr) : sets::SettingsBase(title, db), server(80) {}
 
-    void begin() {
+    void begin(bool useDns = true) {
+        if (useDns) _dns.begin();
         server.begin();
+
+#ifndef SETS_USE_CORS
+        server.useCors(false);
+#endif
 
         server.onRequest([this](ghttp::ServerBase::Request req) {
             switch (req.path().hash()) {
                 case SH("/settings"):
-                    parse(req.param("action"), req.param("id"), req.param("value").decodeUrl());
+                    parse(req.param("auth"), req.param("action"), req.param("id"), req.param("value").decodeUrl());
+                    break;
+
+                case SH("/fetch"):
+                    if (authenticate(req.param("auth"))) {
+                        File f = sets::FS.openRead(req.param("path").decodeUrl());
+                        if (f) server.sendFile(f);
+                        else server.send(500);
+                    } else {
+                        server.send(401);
+                    }
+                    break;
+
+                case SH("/upload"):
+                    if (authenticate(req.param("auth"))) {
+                        File f = sets::FS.openWrite(req.param("path").decodeUrl());
+                        if (f) {
+                            req.body().writeTo(f);
+                            server.send(200);
+                        } else server.send(500);
+                    } else {
+                        server.send(401);
+                    }
+                    break;
+
+                case SH("/ota"):
+                    if (authenticate(req.param("auth"))) {
+                        if (sets::beginOta() && req.body().writeTo(Update) && Update.end(true) && !Update.hasError()) {
+                            server.send(200);
+                            restart();
+                        } else server.send(500);
+                    } else {
+                        server.send(401);
+                    }
                     break;
 
                 case SH("/script.js"):
@@ -38,35 +76,28 @@ class SettingsGyver : public SettingsBase {
                     server.sendFile_P(settings_style_gz, settings_style_gz_len, "text/css", true, true);
                     break;
 
+                case SH("/favicon.svg"):
+                    server.sendFile_P(settings_favicon_gz, settings_favicon_gz_len, "image/svg+xml", true, true);
+                    break;
+
                 default:
                     server.sendFile_P(settings_index_gz, settings_index_gz_len, "text/html", false, true);
                     break;
             }
         });
-
-#ifndef SETT_NO_DNS
-        if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
-            dns_f = 1;
-            dns.start(53, "*", WiFi.softAPIP());
-        }
-#endif
     }
 
     void tick() {
-#ifndef SETT_NO_DNS
-        if (dns_f) dns.processNextRequest();
-#endif
+        _dns.tick();
         server.tick();
-        SettingsBase::tick();
+        sets::SettingsBase::tick();
     }
 
     ghttp::Server<WiFiServer, WiFiClient> server;
 
    private:
-#ifndef SETT_NO_DNS
-    DNSServer dns;
-    bool dns_f = false;
-#endif
+    sets::DnsWrapper _dns;
+    bool _rst = false;
 
     void send(uint8_t* data, size_t len) {
         server.sendFile(data, len);

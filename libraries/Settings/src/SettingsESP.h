@@ -2,6 +2,7 @@
 
 #pragma once
 #include <Arduino.h>
+#include <LittleFS.h>
 
 #ifdef ESP8266
 #include <ESP8266WebServer.h>
@@ -11,28 +12,75 @@
 #include <WiFi.h>
 #endif
 
-#ifndef SETT_NO_DNS
-#include <DNSServer.h>
-#endif
-
 #include "SettingsBase.h"
+#include "core/DnsWrapper.h"
+#include "core/fs.h"
+#include "core/ota.h"
 #include "web/settings.h"
 
-class SettingsESP : public SettingsBase {
+class SettingsESP : public sets::SettingsBase {
    public:
-    SettingsESP(const String& title = "", GyverDB* db = nullptr) : SettingsBase(title, db), server(80) {}
+    SettingsESP(const String& title = "", GyverDB* db = nullptr) : sets::SettingsBase(title, db), server(80) {}
 
-    void begin() {
+    void begin(bool useDns = true) {
+        if (useDns) _dns.begin();
         server.begin();
 
         server.on("/settings", HTTP_GET, [this]() {
+            String auth = server.arg(F("auth"));
             String action = server.arg(F("action"));
             String id = server.arg(F("id"));
             String value = server.arg(F("value"));
 
             cors_h();
-            parse(action, id, value);
+            parse(auth, action, id, value);
         });
+
+        server.on("/fetch", HTTP_GET, [this]() {
+            String auth = server.arg(F("auth"));
+            cors_h();
+            if (!authenticate(auth)) {
+                server.send(401);
+                return;
+            }
+
+            String path = server.arg(F("path"));
+            File f = sets::FS.openRead(path);
+            if (f) server.streamFile(f, "text/plain");
+            else server.send(500);
+        });
+
+        server.on("/upload", HTTP_POST, [this]() {
+            cors_h();
+            server.send(200); }, [this]() {
+            String auth = server.arg(F("auth"));
+            if (!authenticate(auth)) return;
+
+            HTTPUpload& upload = server.upload();
+            if (upload.status == UPLOAD_FILE_START) {
+                String path = server.arg(F("path"));
+                _file = sets::FS.openWrite(path);
+            } else if (upload.status == UPLOAD_FILE_WRITE) {
+                if (_file) _file.write(upload.buf, upload.currentSize);
+            } else if (upload.status == UPLOAD_FILE_END) {
+                if (_file) _file.close();
+            } });
+
+        server.on("/ota", HTTP_POST, [this]() { 
+            cors_h();
+            server.send(Update.hasError() ? 500 : 200);
+            if (!Update.hasError()) restart(); }, [this]() {
+            String auth = server.arg(F("auth"));
+            if (!authenticate(auth)) return;
+
+            HTTPUpload& upload = server.upload();
+            if (upload.status == UPLOAD_FILE_START) {
+                sets::beginOta();
+            } else if (upload.status == UPLOAD_FILE_WRITE) {
+                Update.write(upload.buf, upload.currentSize);
+            } else if (upload.status == UPLOAD_FILE_END) {
+                Update.end(true);
+            } });
 
         server.onNotFound([this]() {
             gzip_h();
@@ -49,21 +97,17 @@ class SettingsESP : public SettingsBase {
             cache_h();
             server.send_P(200, "text/css", (PGM_P)settings_style_gz, settings_style_gz_len);
         });
-
-#ifndef SETT_NO_DNS
-        if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
-            dns_f = 1;
-            dns.start(53, "*", WiFi.softAPIP());
-        }
-#endif
+        server.on("/favicon.svg", HTTP_GET, [this]() {
+            gzip_h();
+            cache_h();
+            server.send_P(200, "image/svg+xml", (PGM_P)settings_favicon_gz, settings_favicon_gz_len);
+        });
     }
 
     void tick() {
-#ifndef SETT_NO_DNS
-        if (dns_f) dns.processNextRequest();
-#endif
+        _dns.tick();
         server.handleClient();
-        SettingsBase::tick();
+        sets::SettingsBase::tick();
     }
 
 #ifdef ESP8266
@@ -73,10 +117,8 @@ class SettingsESP : public SettingsBase {
 #endif
 
    private:
-#ifndef SETT_NO_DNS
-    DNSServer dns;
-    bool dns_f = false;
-#endif
+    sets::DnsWrapper _dns;
+    File _file;
 
     void send(uint8_t* data, size_t len) {
         server.setContentLength(len);
@@ -96,8 +138,10 @@ class SettingsESP : public SettingsBase {
         server.sendHeader(F("Expires"), F("0"));
     }
     void cors_h() {
+#ifdef SETS_USE_CORS
         server.sendHeader(F("Access-Control-Allow-Origin"), F("*"));
         server.sendHeader(F("Access-Control-Allow-Private-Network"), F("true"));
         server.sendHeader(F("Access-Control-Allow-Methods"), F("*"));
+#endif
     }
 };

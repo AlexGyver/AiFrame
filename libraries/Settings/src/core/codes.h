@@ -15,6 +15,12 @@ enum class Code : uint8_t {
     reload,
     update,
     ping,
+    granted,
+    fs,
+    error,
+    gzip,
+    used,
+    total,
 
     label,
     title,
@@ -36,6 +42,8 @@ enum class Code : uint8_t {
     datetime,
     button,
     paragraph,
+    confirm,
+    led,
 };
 
 }
