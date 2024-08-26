@@ -37,9 +37,20 @@ void setup() {
     if (http.request("/GyverLibs/GyverHub-example/main/project.json")) {
         ghttp::Client::Response resp = http.getResponse();
         if (resp) {
+            Serial.println(resp.code());
             Serial.println(resp.type());
             Serial.println(resp.body().length());
             Serial.println(resp.body());
+
+            // парсинг json body при помощи GSON
+            // работает также с chunked encoding
+            // String s = resp.body().readString();
+            // gson::Parser json;
+            // if (json.parse(s)) {
+            //     json.stringify(Serial);
+            // } else {
+            //     Serial.println("Parse error");
+            // }
         } else {
             Serial.println("response error");
         }

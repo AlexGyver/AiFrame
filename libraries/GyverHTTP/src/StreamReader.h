@@ -9,7 +9,31 @@
 
 // ==================== READER ====================
 class StreamReader : public Printable, public Stream {
+    class WritableString : public String {
+       public:
+        size_t write(uint8_t* data, size_t len) {
+            return concat((char*)data, len) ? len : 0;
+        }
+    };
+
    public:
+    class Buffer {
+       public:
+        size_t write(uint8_t* data, size_t len) {
+            return s.concat((char*)data, len) ? len : 0;
+        }
+
+        uint8_t* buf() {
+            return (uint8_t*)s.c_str();
+        }
+        size_t length() {
+            return s.length();
+        }
+
+       private:
+        String s;
+    };
+
     StreamReader(Stream* stream = nullptr, size_t len = 0, bool chunked = false) : stream(stream), _len(len), _chunked(chunked), _tout(stream ? stream->getTimeout() : READER_DEF_TOUT) {}
 
     // установить размер блока
@@ -53,6 +77,22 @@ class StreamReader : public Printable, public Stream {
 
     int peek() {
         return '0';
+    }
+
+    Buffer readBuffer() {
+        Buffer b;
+        writeTo(b);
+        return b;
+    }
+
+    bool readBuffer(Buffer& b) {
+        return writeTo(b);
+    }
+
+    String readString() {
+        WritableString s;
+        writeTo(s);
+        return s;
     }
 
     size_t readBytes(char* buffer, size_t length) {

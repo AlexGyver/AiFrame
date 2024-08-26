@@ -261,6 +261,13 @@ class ServerBase {
     }
 #endif
 
+    // отправить файл-строку как текст
+    void sendFile(const Text& text, Text type = Text(), bool cache = false) {
+        if (!_clientp) return;
+        StreamWriter writer(text.str(), text.length(), text.pgm());
+        _sendFile(writer, type, cache, false);
+    }
+
     // отправить файл из буфера
     void sendFile(const uint8_t* buf, size_t len, Text type = Text(), bool cache = false, bool gzip = false) {
         if (!_clientp) return;
@@ -273,6 +280,13 @@ class ServerBase {
         if (!_clientp) return;
         StreamWriter writer(buf, len, true);
         _sendFile(writer, type, cache, gzip);
+    }
+
+    // отправить файл-строку из PROGMEM
+    void sendFile_P(const char* pstr, Text type = Text(), bool cache = false) {
+        if (!_clientp) return;
+        StreamWriter writer(pstr, strlen_P(pstr), true);
+        _sendFile(writer, type, cache, false);
     }
 
     // пометить запрос как выполненный
@@ -315,9 +329,8 @@ class ServerBase {
     // обработать запрос
     void handleRequest(::Client& client, HeadersCollector* collector = nullptr) {
         String lineStr = client.readStringUntil('\n');
-        Text lineTxt(lineStr);
         Text lines[3];
-        size_t n = lineTxt.split(lines, 3, ' ');
+        size_t n = Text(lineStr).split(lines, 3, ' ');
         if (n != 3) return;
 
         HeadersParser headers(client, HS_HEADER_BUF_SIZE, collector);

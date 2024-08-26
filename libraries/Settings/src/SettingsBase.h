@@ -21,7 +21,9 @@ class SettingsBase {
     typedef std::function<void(Updater& upd)> UpdateCallback;
 
    public:
-    SettingsBase(const String& title = "", GyverDB* db = nullptr) : _title(title), _db(db) {}
+    SettingsBase(const String& title = "", GyverDB* db = nullptr) : _title(title), _db(db) {
+        useAutoUpdates(true);
+    }
 
     // установить пароль на вебморду. Пустая строка "" чтобы отключить
     void setPass(Text pass) {
@@ -43,9 +45,10 @@ class SettingsBase {
         _db = db;
     }
 
-    // использовать автоматические обновления из БД (при изменении записи новое значение отправится в браузер)
+    // использовать автоматические обновления из БД (при изменении записи новое значение отправится в браузер) (умолч. true)
     void useAutoUpdates(bool use) {
         _dbupdates = use;
+        if (_db) _db->useUpdates(use);
     }
 
     // обработчик билда
@@ -90,6 +93,14 @@ class SettingsBase {
         bool granted = authenticate(passh);
 
         switch (action.hash()) {
+            case SH("discover"): {
+                String str(F(R"raw({"type":"discover","name":")raw"));
+                if (_title.length()) str += _title;
+                else str += F("Unnamed");
+                str += "\"}";
+                send((uint8_t*)str.c_str(), str.length());
+            } break;
+
             case SH("load"):
                 _sendBuild(granted);
                 break;
@@ -129,6 +140,7 @@ class SettingsBase {
                     Updater upd(p);
                     p.beginObj();
                     p.addCode(Code::type, Code::update);
+                    p.addUint(Code::rssi, constrain(2 * (WiFi.RSSI() + 100), 0, 100));
                     p.beginArr(Code::content);
                     if (_db && _dbupdates) {
                         while (_db->updatesAvailable()) {
@@ -206,6 +218,7 @@ class SettingsBase {
             p.beginObj();
             p.addCode(Code::type, Code::build);
             p.addUint(Code::ping, _updPeriod);
+            p.addUint(Code::rssi, constrain(2 * (WiFi.RSSI() + 100), 0, 100));
             if (_title.length()) p.addText(Code::title, _title);
             if (_passh) p.addBool(Code::granted, granted);
 #ifdef ATOMIC_FS_UPDATE
@@ -224,4 +237,4 @@ class SettingsBase {
     }
 };
 
-}
+}  // namespace sets

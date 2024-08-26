@@ -103,7 +103,9 @@ void setup() {
 
         // RESPONSE
         if (req.url() == "/") {
-            server.sendFile_P((uint8_t*)html_p, strlen_P(html_p), "text/html");
+            // большие текстовые PROGMEM "файлы" эффективнее отсылать через sendFile
+            // отправка идёт сильно бысрее, чем отправка в send как текст
+            server.sendFile_P(html_p, "text/html");
 
             // server.sendFile((uint8_t*)"hello text!", 11);
             // File f = LittleFS.open("lorem.txt", "r");

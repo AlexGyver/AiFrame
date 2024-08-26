@@ -88,7 +88,7 @@ class Client : public Print {
     class Response {
        public:
         Response() {}
-        Response(const String& type, Stream* stream = nullptr, size_t len = 0, bool chunked = false) : _type(type), _reader(stream, len, chunked) {}
+        Response(const String& type, Stream* stream, size_t len, bool chunked, uint16_t code) : _type(type), _reader(stream, len, chunked), _code(code) {}
 
         // тип контента
         Text type() const {
@@ -100,6 +100,11 @@ class Client : public Print {
             return _reader;
         }
 
+        // код ответа
+        uint16_t code() {
+            return _code;
+        }
+
         // ответ существует
         operator bool() {
             return _reader;
@@ -108,6 +113,7 @@ class Client : public Print {
        private:
         String _type;
         StreamReader _reader;
+        uint16_t _code;
     };
 
    private:
@@ -258,12 +264,16 @@ class Client : public Print {
             return Response();
         }
 
+        String lineStr = client.readStringUntil('\n');
+        Text lines[3];
+        Text(lineStr).split(lines, 3, ' ');
+
         HeadersParser headers(client, HC_HEADER_BUF_SIZE, collector);
 
         if (headers) {
             _close = headers.close;
             _waiting = 0;
-            return Response(headers.contentType, &client, headers.length, headers.chunked);
+            return Response(headers.contentType, &client, headers.length, headers.chunked, lines[1].toInt());
         } else {
             flush();
             return Response();

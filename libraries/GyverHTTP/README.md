@@ -130,6 +130,9 @@ void flush();
 // тип контента (из хэдера Content-Type)
 Text type();
 
+// код ответа
+uint16_t code();
+
 // тело ответа (длина из хэдера Content-Length)
 StreamReader& body();
 
@@ -185,11 +188,17 @@ void send(Text text, uint16_t code, Text type = Text());
 // отправить файл
 void sendFile(File& file, Text type = Text(), bool cache = false, bool gzip = false);
 
+// отправить файл-строку как текст
+void sendFile(const Text& text, Text type = Text(), bool cache = false);
+
 // отправить файл из буфера
 void sendFile(const uint8_t* buf, size_t len, Text type = Text(), bool cache = false, bool gzip = false);
 
 // отправить файл из PROGMEM
 void sendFile_P(const uint8_t* buf, size_t len, Text type = Text(), bool cache = false, bool gzip = false);
+
+// отправить файл-строку из PROGMEM
+void sendFile_P(const char* pstr, Text type = Text(), bool cache = false);
 
 // пометить запрос как выполненный
 void handle();

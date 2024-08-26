@@ -86,7 +86,7 @@ class Kandinsky {
 
     bool getStyles() {
         if (!_api_key.length()) return 0;
-        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/api");
+        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/web");
     }
 
     bool generate(Text query, uint16_t width = 512, uint16_t height = 512, Text style = "DEFAULT", Text negative = "") {
@@ -206,7 +206,7 @@ class Kandinsky {
         }
 
         ghttp::Client::Response resp = http.getResponse();
-        if (resp) {
+        if (resp && resp.code() >= 200 && resp.code() < 300) {
             if (state == State::Status) {
                 bool ok = parseStatus(resp.body());
                 http.flush();
@@ -223,6 +223,7 @@ class Kandinsky {
                 }
             }
         } else {
+            http.flush();
             FUS_LOG("Response error");
         }
         return 0;
