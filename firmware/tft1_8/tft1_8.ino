@@ -57,7 +57,8 @@ void setup() {
         tft.print("OK. Styles: ");
         tft.println(gen.styles);
     } else {
-        tft.println("Error!");
+        tft.print("Error! ");
+        tft.println(gen.styles);
     }
     tft.println();
 
