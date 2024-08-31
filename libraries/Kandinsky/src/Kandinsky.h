@@ -86,7 +86,7 @@ class Kandinsky {
 
     bool getStyles() {
         if (!_api_key.length()) return 0;
-        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/api");
+        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/key");
     }
 
     bool generate(Text query, uint16_t width = 512, uint16_t height = 512, Text style = "DEFAULT", Text negative = "") {
