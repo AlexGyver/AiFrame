@@ -6,18 +6,28 @@ class Reader {
     Reader(Stream& stream, size_t len) : _stream(&stream), _len(len) {}
     Reader(const uint8_t* bytes, size_t len, bool pgm = false) : _bytes(bytes), _len(len), _pgm(pgm) {}
 
-    int read() {
+    int peek() {
         if (!_len) return -1;
-        _len--;
-        
         if (_stream) {
             if (!_waitStream()) return -1;
-            _prev = _stream->read();
+            return _stream->peek();
         } else if (_bytes) {
-            _prev = _pgm ? pgm_read_byte(_bytes) : *_bytes;
+            return _pgm ? pgm_read_byte(_bytes) : *_bytes;
+        }
+    }
+
+    int read() {
+        if (!_len) return -1;
+        _prev = _buf;
+        _len--;
+        if (_stream) {
+            if (!_waitStream()) return -1;
+            _buf = _stream->read();
+        } else if (_bytes) {
+            _buf = _pgm ? pgm_read_byte(_bytes) : *_bytes;
             _bytes++;
         }
-        return _prev;
+        return _buf;
     }
 
     bool read(void* dest, size_t size) {
@@ -34,8 +44,14 @@ class Reader {
         return 0;
     }
 
+    // предыдущий прочитанный символ
     inline uint8_t prev() {
         return _prev;
+    }
+
+    // текущий прочитанный символ после read()
+    inline uint8_t current() {
+        return _buf;
     }
 
     template <typename T>
@@ -47,12 +63,16 @@ class Reader {
         return _len;
     }
 
+    void setLength(size_t len) {
+        _len = len;
+    }
+
    private:
     Stream* _stream = nullptr;
     const uint8_t* _bytes = nullptr;
     size_t _len = 0;
     bool _pgm = false;
-    uint8_t _prev = 0;
+    uint8_t _prev = 0, _buf = 0;
 
     bool _waitStream() {
         if (!_stream->available()) {

@@ -18,7 +18,7 @@ class EspInsecureClient : public ghttp::Client {
    public:
     EspInsecureClient(const char* host, uint16_t port) : ghttp::Client(_client, host, port) {
 #ifdef ESP8266
-        _client.setBufferSizes(512, 512);
+        _client.setBufferSizes(1024, 512);
 #endif
         _client.setInsecure();
     }

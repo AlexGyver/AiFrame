@@ -144,6 +144,32 @@ class GyverDB : private gtl::stack_uniq<gdb::block_t> {
         _changed = 1;
     }
 
+    // удалить из БД записи, ключей которых нет в переданном списке
+    void cleanup(size_t* hashes, size_t len) {
+        for (size_t i = 0; i < _len;) {
+            size_t hash = _buf[i].keyHash();
+            bool found = false;
+            for (size_t h = 0; h < len; h++) {
+                if (hash == (hashes[h] & DB_HASH_MASK)) {
+                    i++;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                gtl::stack_uniq<gdb::block_t>::remove(i);
+                _changed = 1;
+            }
+        }
+    }
+
+    // вывести все ключи в массив длиной length()
+    void getKeys(size_t* hashes) {
+        for (size_t i = 0; i < _len; i++) {
+            hashes[i] = _buf[i].keyHash();
+        }
+    }
+
     // было изменение данных. После срабатывания сбросится в false
     bool changed() {
         return _changed ? _changed = 0, true : false;
@@ -166,6 +192,11 @@ class GyverDB : private gtl::stack_uniq<gdb::block_t> {
     }
     gdb::Entry get(const Text& key) {
         return get(key.hash());
+    }
+
+    // получить запись по порядку
+    gdb::Entry getN(int idx) {
+        return (idx < _len) ? gdb::Entry(_buf[idx]) : gdb::Entry();
     }
 
     // удалить запись

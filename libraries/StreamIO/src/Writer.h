@@ -6,23 +6,27 @@ class Writer {
     Writer(Stream& stream) : _stream(&stream) {}
     Writer(uint8_t* buffer) : _buffer(buffer) {}
 
-    bool write(const void* data, size_t size) {
+    size_t write(const uint8_t* data, size_t size) {
         if (_stream) {
             size_t w = _stream->write((const uint8_t*)data, size);
             _writed += w;
-            return w == size;
+            return w;
         } else if (_buffer) {
             memcpy(_buffer, data, size);
             _buffer += size;
             _writed += size;
-            return 1;
+            return size;
         }
         return 0;
     }
 
+    bool write(const void* data, size_t size) {
+        return write((const uint8_t*)data, size) == size;
+    }
+
     template <typename T>
-    bool write(T& val) {
-        return write(&val, sizeof(T));
+    bool write(const T& val) {
+        return write((const void*)&val, sizeof(T));
     }
 
     size_t writed() {

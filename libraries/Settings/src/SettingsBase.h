@@ -4,6 +4,7 @@
 #include <GyverDB.h>
 #include <StringUtils.h>
 
+#include "core/SettingsBase_class.h"
 #include "core/builder.h"
 #include "core/colors.h"
 #include "core/containers.h"
@@ -91,12 +92,15 @@ class SettingsBase {
     void parse(Text passh, Text action, Text idtxt, Text value) {
         size_t id = idtxt.toInt32HEX();
         bool granted = authenticate(passh);
+        thisSettings = this;
 
         switch (action.hash()) {
             case SH("discover"): {
                 String str(F(R"raw({"type":"discover","name":")raw"));
                 if (_title.length()) str += _title;
                 else str += F("Unnamed");
+                str += F(R"raw(","mac":")raw");
+                str += WiFi.macAddress();
                 str += "\"}";
                 send((uint8_t*)str.c_str(), str.length());
             } break;
@@ -178,6 +182,7 @@ class SettingsBase {
                 }
                 break;
         }
+        thisSettings = nullptr;
     }
 
    private:

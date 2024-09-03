@@ -1,0 +1,29 @@
+#######################################
+# Syntax Coloring Map For AutoOTA
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+AutoOTA	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+None	LITERAL1
+Connect	LITERAL1
+Timeout	LITERAL1
+HTTP	LITERAL1
+NoVersion	LITERAL1
+NoPlatform	LITERAL1
+NoPath	LITERAL1
+NoUpdates	LITERAL1
+NoFile	LITERAL1
+OtaStart	LITERAL1
+OtaEnd	LITERAL1

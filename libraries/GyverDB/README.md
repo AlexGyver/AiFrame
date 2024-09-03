@@ -22,6 +22,7 @@
 - [StreamIO](https://github.com/GyverLibs/StreamIO)
 - [GTL](https://github.com/GyverLibs/GTL) v1.0.6+
 - [StringUtils](https://github.com/GyverLibs/StringUtils) v1.4.15+
+- [FOR_MACRO](https://github.com/GyverLibs/FOR_MACRO) v1.0.0+
 
 ## Содержание
 - [Использование](#usage)
@@ -86,9 +87,18 @@ void reset();
 // стереть все записи (не освобождает зарезервированное место)
 void clear();
 
+// удалить из БД записи, ключей которых нет в переданном списке
+void cleanup(size_t* hashes, size_t len);
+
+// вывести все ключи в массив длиной length()
+void getKeys(size_t* hashes);
+
 // получить запись
 gdb::Entry get(size_t hash);
 gdb::Entry get(const Text& key);
+
+// получить запись по порядку
+gdb::Entry getN(int idx);
 
 // удалить запись
 void remove(size_t hash);
@@ -182,7 +192,6 @@ bool writeTo(T& dest);
 Value toText();
 String toString();
 bool toBool();
-int toInt();
 int32_t toInt();
 int64_t toInt64();
 double toFloat();
@@ -234,10 +243,10 @@ enum keys : size_t {
 Теперь enum хранит хэши и не боится удаления или добавления ключей не в конец. Для более короткой записи в библиотеке есть удобный макрос:
 ```cpp
 DB_KEYS(keys,
-    DB_KEY(key1),
-    DB_KEY(key2),
-    DB_KEY(mykey),
-)
+    key1,
+    key2,
+    mykey,
+);
 ```
 Он развернётся в такой же хэш-enum как в примере выше.
 
@@ -280,6 +289,17 @@ db["arr"].writeTo(arr2);
 
 // посмотрим что записалось
 db.dump(Serial);
+```
+
+При разработке проекта может оказаться так, что некоторые ключи "устарели" или были переименованы в процессе разработки, и записи по ним уже не нужны. В библиотеке есть возможность провести очистку БД: удалить все лишние записи и оставить только заданный список ключей. Это делается так:
+```cpp
+  // список ключей, которые надо оставить. В формате size_t в любом виде
+  size_t hashes[] = {SH("key1"), "key2"_h, kesy::key3};
+
+  // очищаем
+  db.cleanup(hashes, 3);
+
+  // в БД останутся только записи, соответствующие указанным выше ключам
 ```
 
 ### Примечания

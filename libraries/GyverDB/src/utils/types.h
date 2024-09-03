@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <FOR_MACRO.h>
 #include <StringUtils.h>
 
 #define DB_TYPE_SIZE (3ul)
@@ -11,8 +12,13 @@
 #define DB_MAKE_TYPEHASH(t, h) ((uint32_t)t | (h & DB_HASH_MASK))
 #define DB_REPLACE_TYPE(x, t) ((x & ~(DB_TYPE_MASK)) | (uint32_t)t)
 
-#define DB_KEY(name) name = SH(#name) & DB_HASH_MASK
-#define DB_KEYS(name, ...) enum name : size_t { __VA_ARGS__ };
+// #define DB_KEY(name) name = SH(#name) & DB_HASH_MASK
+// #define DB_KEYS(name, ...) enum name : size_t { __VA_ARGS__ };
+
+#define DB_KEY(name) name
+#define _DB_KEY(N, i, p, val) val = (SH(#val) & DB_HASH_MASK),
+
+#define DB_KEYS(name, ...) enum name : size_t { FOR_MACRO(_DB_KEY, 0, __VA_ARGS__) };
 
 namespace gdb {
 
@@ -90,11 +96,8 @@ class Converter {
     bool toBool() const {
         if (!p) return 0;
         switch (type) {
-            case Type::String:
-                return (*(char*)p == 't' || *(char*)p == '1');
-
-            default:
-                break;
+            case Type::String: return (*(char*)p == 't' || *(char*)p == '1');
+            default: break;
         }
         return toInt();
     }
@@ -150,15 +153,11 @@ class Converter {
     float toFloat() const {
         if (!p) return 0;
         switch (type) {
-            case Type::Float:
-                return *((float*)p);
-
+            case Type::Float: return *((float*)p);
 #ifndef DB_NO_FLOAT
-            case Type::String:
-                return Text((const char*)p, len).toFloat();
+            case Type::String: return Text((const char*)p, len).toFloat();
 #endif
-            default:
-                break;
+            default: break;
         }
         return toInt();
     }
@@ -166,27 +165,17 @@ class Converter {
     Value toText() const {
         if (!p) return Value();
         switch (type) {
-            case Type::Int:
-                return (int32_t)toInt();
-
-            case Type::Uint:
-                return (uint32_t)toInt();
-
+            case Type::Int: return (int32_t)toInt();
+            case Type::Uint: return (uint32_t)toInt();
 #ifndef DB_NO_INT64
-            case Type::Int64:
-                return *((int64_t*)p);
-            case Type::Uint64:
-                return *((uint64_t*)p);
+            case Type::Int64: return *((int64_t*)p);
+            case Type::Uint64: return *((uint64_t*)p);
 #endif
 #ifndef DB_NO_FLOAT
-            case Type::Float:
-                return *((float*)p);
+            case Type::Float: return *((float*)p);
 #endif
-            case Type::String:
-                return Text((const char*)p, len);
-
-            default:
-                break;
+            case Type::String: return Text((const char*)p, len);
+            default: break;
         }
         return Value();
     }

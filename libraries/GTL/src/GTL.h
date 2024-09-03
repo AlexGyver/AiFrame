@@ -4,6 +4,7 @@
 #include "array/array_uniq.h"
 #include "fifo/fifo_ext.h"
 #include "fifo/fifo_static.h"
+#include "list/linked_list.h"
 #include "ptr/ptr_shared.h"
 #include "ptr/ptr_uniq.h"
 #include "stack/stack.h"

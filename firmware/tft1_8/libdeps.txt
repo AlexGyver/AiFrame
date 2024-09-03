@@ -1,4 +1,0 @@
-lib_deps = 
-    https://github.com/GyverLibs/Settings.git
-    https://github.com/adafruit/Adafruit-ST7735-Library.git
-    https://github.com/adafruit/Adafruit-GFX-Library.git

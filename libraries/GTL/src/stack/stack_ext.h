@@ -4,6 +4,19 @@
 
 namespace gtl {
 
+template <typename T>
+struct bsearch_t {
+    // индекс в стеке
+    int idx;
+
+    // указатель на данные, если найдены
+    T* ptr;
+
+    explicit operator bool() {
+        return ptr;
+    }
+};
+
 // External Static Stack
 template <typename T>
 class stack_ext {
@@ -33,8 +46,8 @@ class stack_ext {
     }
 
     // получить с конца и удалить
-    T pop() {
-        return length() ? _buf[(_len--) - 1] : T();
+    T& pop() {
+        return _buf[(_len--) - 1];
     }
 
     // прочитать с конца не удаляя
@@ -65,6 +78,26 @@ class stack_ext {
         return _buf[0];
     }
 
+    // бинарный поиск в отсортированном стеке
+    bsearch_t<T> searchSort(const T& val) {
+        if (!length()) return bsearch_t<T>{0, nullptr};
+        int low = 0, high = length() - 1;
+        while (low <= high) {
+            int mid = low + ((high - low) >> 1);
+            if (_buf[mid] == val) return bsearch_t<T>{mid, &_buf[mid]};
+            if (_buf[mid] < val) low = mid + 1;
+            else high = mid - 1;
+        }
+        return bsearch_t<T>{low, nullptr};
+    }
+
+    // добавить с сортировкой. Флаг uniq - не добавлять если элемент уже есть
+    bool addSort(const T& val, bool uniq = false) {
+        bsearch_t<T> pos = searchSort(val);
+        if (uniq && pos) return 0;
+        return insert(pos.idx, val);
+    }
+
     // удалить элемент. Отрицательный - с конца
     bool remove(int idx) {
         if (!length() || idx >= (int)_len || idx < -(int)_len) return 0;
@@ -89,14 +122,14 @@ class stack_ext {
         return 1;
     }
 
-    // вставить элемент на индекс (допускается индекс length())
+    // вставить элемент на индекс (отрицательный индекс - с конца, слишком большой - будет push)
     bool insert(int idx, const T& val) {
-        if (idx > (int)_len || idx < -(int)_len || !_fit(_len + 1)) return 0;
-
         if (idx < 0) idx += _len;
+        if (idx < 0) return 0;
         if (idx == 0) return shift(val);
-        else if (idx == (int)_len) return push(val);
+        else if (idx >= (int)_len) return push(val);
 
+        if (!_fit(_len + 1)) return 0;
         memmove((void*)(_buf + idx + 1), (const void*)(_buf + idx), (_len - idx) * sizeof(T));
         _buf[idx] = val;
         _len++;

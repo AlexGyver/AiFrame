@@ -32,9 +32,9 @@ class Text : public Printable {
         }
 #endif
 
-        Cstr(const Text& t) {
+        Cstr(const Text& t, bool forceDup = false) {
             if (!t.length()) return;
-            if (!t.pgm() && t.terminated()) {
+            if (!t.pgm() && t.terminated() && !forceDup) {
                 str = t.str();
                 len = t.length();
                 return;
@@ -64,6 +64,10 @@ class Text : public Printable {
             str = "";
             len = 0;
             del = false;
+        }
+
+        uint16_t length() {
+            return len;
         }
 
        private:
@@ -606,12 +610,14 @@ class Text : public Printable {
         return url::decode(_str, _len);
     }
 
-    // Получить символ по индексу
-    char charAt(uint16_t idx) const {
+    // Получить символ по индексу. Допускаются отрицательные
+    char charAt(int idx) const {
+        if (idx < 0) idx += length();
+        if (idx < 0) return 0;
         return (valid() && idx < _len) ? _charAt(idx) : 0;
     }
 
-    // Получить символ по индексу
+    // Получить символ по индексу. Допускаются отрицательные
     char operator[](int idx) const {
         return charAt(idx);
     }
@@ -648,8 +654,8 @@ class Text : public Printable {
     // ========================== CONVERT ==========================
 
     // получить const char* копию (Cstr конвертируется в const char*). Всегда валидна и терминирована. Если Text из PGM или не терминирован - будет создана временная копия
-    Cstr c_str() const {
-        return Cstr(*this);
+    Cstr c_str(bool forceDup = false) const {
+        return Cstr(*this, forceDup);
     }
 
     // Вывести в String строку. Вернёт false при неудаче
