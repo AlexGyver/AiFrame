@@ -52,8 +52,8 @@ void build(sets::Builder& b) {
     if (b.Confirm("update"_h)) ota.update();
 
     // actions
-    if (b.build().isAction()) {
-        switch (b.build().id()) {
+    if (b.build.isAction()) {
+        switch (b.build.id) {
             case SH("generate"):
                 generate();
                 init_tmr();

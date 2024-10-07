@@ -6,10 +6,8 @@
 
 #ifdef ESP8266
 #include <ESP8266WebServer.h>
-#include <ESP8266WiFi.h>
 #else
 #include <WebServer.h>
-#include <WiFi.h>
 #endif
 
 #include "SettingsBase.h"
@@ -20,7 +18,11 @@
 
 class SettingsESP : public sets::SettingsBase {
    public:
+#ifndef SETT_NO_DB
     SettingsESP(const String& title = "", GyverDB* db = nullptr) : sets::SettingsBase(title, db), server(80) {}
+#else
+    SettingsESP(const String& title = "") : sets::SettingsBase(title), server(80) {}
+#endif
 
     void begin(bool useDns = true) {
         if (useDns) _dns.begin();
