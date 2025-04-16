@@ -61,80 +61,71 @@ class Kandinsky {
     // 1, 2, 4, 8
     void setScale(uint8_t scale) {
         switch (scale) {
-            case 1:
-                _scale = 0;
-                break;
-            case 2:
-                _scale = 1;
-                break;
-            case 4:
-                _scale = 2;
-                break;
-            case 8:
-                _scale = 3;
-                break;
-            default:
-                _scale = 0;
-                break;
+            case 1: _scale = 0; break;
+            case 2: _scale = 1; break;
+            case 4: _scale = 2; break;
+            case 8: _scale = 3; break;
+            default: _scale = 0; break;
         }
     }
 
     bool begin() {
-        if (!_api_key.length()) return 0;
-        return request(State::GetModels, FUSION_HOST, "/key/api/v1/models");
+        if (!_api_key.length()) return false;
+        return request(State::GetModels, FUSION_HOST, "/key/api/v1/pipelines");
     }
 
     bool getStyles() {
-        if (!_api_key.length()) return 0;
-        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/key");
+        if (!_api_key.length()) return false;
+        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/web");
     }
 
     bool generate(Text query, uint16_t width = 512, uint16_t height = 512, Text style = "DEFAULT", Text negative = "") {
         status = "wrong config";
-        if (!_api_key.length()) return 0;
-        if (!style.length()) return 0;
-        if (!query.length()) return 0;
-        if (_id < 0) return 0;
+        if (!_api_key.length()) return false;
+        if (!style.length()) return false;
+        if (!query.length()) return false;
+        if (!_id.length()) return false;
 
         gson::string json;
         json.beginObj();
         json.addString(F("type"), F("GENERATE"));
         json.addString(F("style"), style);
-        json.addString(F("negativePromptUnclip"), negative);
+        json.addString(F("negativePromptDecoder"), negative);
         json.addInt(F("width"), width);
         json.addInt(F("height"), height);
-        json.addInt(F("num_images"), 1);
-        {
-            json.beginObj(F("generateParams"));
-            json.addString(F("query"), query);
-            json.endObj();
-        }
+        json.addInt(F("numImages"), 1);
+        json.beginObj(F("generateParams"));
+        json.addString(F("query"), query);
+        json.endObj();
         json.endObj(true);
 
+        // FUS_LOG("JSON being sent:");
+        // FUS_LOG(json);
+
         ghttp::Client::FormData data;
-        data.add("model_id", "", "", Value(_id));
+        data.add("pipeline_id", "", "", Value(_id));
         data.add("params", "blob", "application/json", json);
 
         uint8_t tries = FUSION_TRIES;
         while (tries--) {
-            if (request(State::Generate, FUSION_HOST, "/key/api/v1/text2image/run", "POST", &data)) {
+            if (request(State::Generate, FUSION_HOST, "/key/api/v1/pipeline/run", "POST", &data)) {
                 FUS_LOG("Gen request sent");
                 status = "wait result";
-                return 1;
+                return true;
             } else {
                 FUS_LOG("Gen request error");
                 delay(2000);
             }
         }
         status = "gen request error";
-        return 0;
+        return false;
     }
 
     bool getImage() {
-        if (!_api_key.length()) return 0;
-        if (!_uuid.length()) return 0;
+        if (!_api_key.length()) return false;
+        if (!_uuid.length()) return false;
         FUS_LOG("Check status...");
-        String url("/key/api/v1/text2image/status/");
+        String url("/key/api/v1/pipeline/status/");
         url += _uuid;
         return request(State::Status, FUSION_HOST, url);
     }
@@ -146,12 +137,9 @@ class Kandinsky {
         }
     }
 
-    int modelID() {
-        return _id;
-    }
-
-    String styles = "DEFAULT;ANIME;UHD;KANDINSKY";
-    String status = "idle";
+    String modelID() { return _id; }
+    String styles = "";
+    String status = "";
 
    private:
     String _api_key;
@@ -159,7 +147,7 @@ class Kandinsky {
     String _uuid;
     uint8_t _scale = 0;
     uint32_t _tmr = 0;
-    int _id = -1;
+    String _id;
     RenderCallback _rnd_cb = nullptr;
     RenderEndCallback _end_cb = nullptr;
     StreamB64* _stream = nullptr;
@@ -191,47 +179,18 @@ class Kandinsky {
         ghttp::Client http(client, host.str(), FUSION_PORT);
 
         ghttp::Client::Headers headers;
-        
-        ///////////////////////////////////////
-        headers.add("Accept", "application/json, text/plain, */*");
-        headers.add("Accept-Language", "ru-RU,ru;q=0.9,en;q=0.8");
-
-        headers.add("Cache-Control", "no-cache");
-        headers.add("Connection", "keep-alive");
-
-        headers.add("DNT", "1");
-
-        headers.add("Host", "cdn.fusionbrain.ai");
-        headers.add("Origin", "cdn.fusionbrain.ai");
-        headers.add("Referer", "cdn.fusionbrain.ai");
-
-        headers.add("Sec-fetch-dest", "document");
-        headers.add("Sec-fetch-mode", "navigate");
-        headers.add("Sec-fetch-site", "none");
-        headers.add("Sec-fetch-user", "?1");
-
-        headers.add("Upgrade-Insecure-Requests", "1");
-        headers.add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-        headers.add("Sec-ch-ua", "Google Chrome;v=131, Chromium;v=131, Not_A Brand;v=24");
-        headers.add("Sec-ch-ua-mobile", "?0");
-        headers.add("Sec-ch-ua-platform", "Windows");
-        //////////////////////////////////////////////////////
-
         headers.add("X-Key", _api_key);
         headers.add("X-Secret", _secret_key);
 
-        bool ok;
-        if (data) {
-            ok = http.request(url, method, headers, *data);
-        } else {
-            ok = http.request(url, method, headers);
-        }
+        bool ok = data ? http.request(url, method, headers, *data)
+                       : http.request(url, method, headers);
         if (!ok) {
             FUS_LOG("Request error");
-            return 0;
+            return false;
         }
 
         ghttp::Client::Response resp = http.getResponse();
+        // FUS_LOG("Response code: " + String(resp.code()));
         if (resp && resp.code() >= 200 && resp.code() < 300) {
             if (state == State::Status) {
                 bool ok = parseStatus(resp.body());
@@ -241,54 +200,59 @@ class Kandinsky {
                 gtl::stack_uniq<uint8_t> str;
                 resp.body().writeTo(str);
                 gson::Parser json;
-
-                if (json.parse(str.buf(), str.length())) {
-                    return parse(state, json);
-                } else {
+                if (!json.parse(str.buf(), str.length())) {
                     FUS_LOG("Parse error");
+                    return false;
                 }
+                return parse(state, json);
             }
         } else {
             http.flush();
+            FUS_LOG("Error" + String(resp.code()));
             FUS_LOG("Response error");
         }
-        return 0;
+        return false;
     }
 
     bool parseStatus(Stream& stream) {
-        bool found = 0;
+        bool found = false;
+        bool insideResult = false;
         while (stream.available()) {
-            stream.readStringUntil('\"');
-            String key = stream.readStringUntil('\"');
-            if (key == "images") {
-                found = 1;
+            stream.readStringUntil('"');
+            String key = stream.readStringUntil('"');
+            if (key == "result") {
+                insideResult = true;
+                continue;
+            }
+            if (insideResult && key == "files") {
+                found = true;
                 break;
             }
-            stream.readStringUntil('\"');
-            String val = stream.readStringUntil('\"');
+            stream.readStringUntil('"');
+            String val = stream.readStringUntil('"');
             if (!key.length() || !val.length()) break;
 
             if (key == "status") {
                 switch (Text(val).hash()) {
                     case SH("INITIAL"):
                     case SH("PROCESSING"):
-                        return 1;
+                        return true;
                     case SH("DONE"):
                         _uuid = "";
                         break;
                     case SH("FAIL"):
                         _uuid = "";
                         status = "gen fail";
-                        return 0;
+                        return false;
                 }
             }
         }
         if (found) {
-            stream.readStringUntil('\"');
+            stream.readStringUntil('"');
             uint8_t* workspace = new uint8_t[TJPGD_WORKSPACE_SIZE];
             if (!workspace) {
                 FUS_LOG("allocate error");
-                return 0;
+                return false;
             }
 
             JDEC jdec;
@@ -299,26 +263,19 @@ class Kandinsky {
             self = this;
 
             jresult = jd_prepare(&jdec, jd_input_cb, workspace, TJPGD_WORKSPACE_SIZE, 0);
-
             if (jresult == JDR_OK) {
                 jresult = jd_decomp(&jdec, jd_output_cb, _scale);
-
-                if (jresult == JDR_OK) {
-                    if (_end_cb) _end_cb();
-                } else {
-                    FUS_LOG("jdec error");
-                }
+                if (jresult == JDR_OK && _end_cb) _end_cb();
             } else {
                 FUS_LOG("jdec error");
             }
 
             self = nullptr;
             delete[] workspace;
-
             status = jresult == JDR_OK ? "gen done" : "jpg error";
             return jresult == JDR_OK;
         }
-        return 1;
+        return true;
     }
 
     bool parse(State state, gson::Parser& json) {
@@ -329,24 +286,23 @@ class Kandinsky {
                     if (i) styles += ';';
                     json[i]["name"].addString(styles);
                 }
-                if (styles.length()) return 1;
-                break;
+                return styles.length();
 
             case State::GetModels:
-                _id = json[0]["id"];
-                if (_id >= 0) return 1;
+                json[0]["id"].toString(_id);
+                if (_id.length()) return true;
                 break;
 
             case State::Generate:
                 _tmr = millis();
                 json["uuid"].toString(_uuid);
-                if (_uuid.length()) return 1;
+                if (_uuid.length()) return true;
                 break;
 
             default:
                 break;
         }
-        return 0;
+        return false;
     }
 };
 
