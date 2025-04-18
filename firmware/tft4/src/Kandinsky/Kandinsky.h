@@ -76,7 +76,7 @@ class Kandinsky {
 
     bool getStyles() {
         if (!_api_key.length()) return false;
-        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/web");
+        return request(State::GetStyles, "cdn.fusionbrain.ai", "/static/styles/key");
     }
 
     bool generate(Text query, uint16_t width = 512, uint16_t height = 512, Text style = "DEFAULT", Text negative = "") {
@@ -139,7 +139,7 @@ class Kandinsky {
 
     String modelID() { return _id; }
     String styles = "";
-    String status = "";
+    String status = "idle";
 
    private:
     String _api_key;
