@@ -21,7 +21,6 @@ void init_tmr() {
 void build(sets::Builder& b) {
     {
         sets::Group g(b, "Генерация");
-        b.Select(kk::gen_style, "Стиль", gen.styles);
         b.Input(kk::gen_query, "Промт");
         b.Input(kk::gen_negative, "Исключить");
         b.Label(SH("status"), "Статус", gen.status);
@@ -44,15 +43,16 @@ void build(sets::Builder& b) {
         {
             sets::Menu m(b, "API");
             sets::Group g(b);
-            b.Input(kk::kand_token, "Token");
-            b.Pass(kk::kand_secret, "Secret");
+            b.Pass(kk::poll_key, "Pollinations Key");
             b.Button(SH("api_save"), "Применить");
         }
     }
 
+    b.Image(SH("last_img"), "Последнее изображение", "/image.jpg");
+    b.HTML(SH("img_refresh"), "", "<script>setInterval(function(){var e=document.querySelector('img.image');if(e)e.src='/fetch?path=/image.jpg&t='+Date.now();},10000);</script>");
+
     if (b.Confirm("update"_h)) ota.update();
 
-    // actions
     if (b.build.isAction()) {
         switch (b.build.id) {
             case SH("generate"):
@@ -64,12 +64,17 @@ void build(sets::Builder& b) {
                 ESP.reset();
                 break;
             case SH("api_save"):
-                gen.setKey(db[kk::kand_token], db[kk::kand_secret]);
+                gen.setKey(db[kk::poll_key]);
+                db.update();
+                break;
+            case kk::gen_query:
+            case kk::gen_negative:
                 db.update();
                 break;
             case kk::auto_gen:
             case kk::auto_prd:
                 init_tmr();
+                db.update();
                 break;
         }
     }
@@ -77,6 +82,10 @@ void build(sets::Builder& b) {
 
 void update(sets::Updater& u) {
     u.update(SH("status"), gen.status);
+    if (gen_image_ready) {
+        gen_image_ready = false;
+        u.update(SH("last_img"), String("/image.jpg"));
+    }
     if (ota.hasUpdate()) u.update("update"_h, "Доступно обновление. Обновить прошивку?");
 }
 

@@ -1,4 +1,9 @@
 #include <Arduino.h>
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#else
+#include <WiFi.h>
+#endif
 
 #include "config.h"
 #include "db.h"
@@ -15,15 +20,15 @@ void setup() {
     sett_init();
     tft_init();
 
-    // ======= AI =======
-    gen.setKey(db[kk::kand_token], db[kk::kand_secret]);
+    gen.setKey(db[kk::poll_key]);
+    gen.setFS(LittleFS);
 
     // ======= AP =======
-    WiFi.softAP("Kandinsky AP");
-    
+    WiFi.softAP("AiFrame AP");
+
     tft.print("AiFrame v");
     tft.println(F_VERSION);
-    tft.println("Kandinsky AP");
+    tft.println("AiFrame AP");
     tft.print("IP: ");
     tft.println(WiFi.softAPIP());
     tft.println();
@@ -53,27 +58,6 @@ void setup() {
     tft.println();
 
     if (!wifi_ok) return;
-
-    // ======= STYLES =======
-    tft.println("Gettings styles...");
-    if (gen.getStyles()) {
-        tft.print("OK. Styles: ");
-        tft.println(gen.styles);
-    } else {
-        tft.print("Error! ");
-        tft.println(gen.styles);
-    }
-    tft.println();
-
-    // ======= MODEL =======
-    tft.println("Init AI model...");
-    if (gen.begin()) {
-        tft.print("OK. Model: ");
-        tft.println(gen.modelID());
-    } else {
-        tft.println("Error!");
-    }
-    tft.println();
 
     tft.println("Ready!");
     Serial.println("Ready!");

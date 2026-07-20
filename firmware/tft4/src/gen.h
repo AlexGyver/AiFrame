@@ -1,26 +1,37 @@
 #pragma once
-#include "Kandinsky/Kandinsky.h"
+#include "Pollinations/Pollinations.h"
 
 #include "config.h"
-Kandinsky gen;
+#include "db.h"
+
+Pollinations gen;
 bool gen_flag = 0;
+bool gen_image_ready = false;
+
+typedef std::function<void()> GenCallback;
+static GenCallback _gen_start_cb = nullptr;
+static GenCallback _gen_end_cb = nullptr;
+
+void gen_on_start(GenCallback cb) { _gen_start_cb = cb; }
+void gen_on_end(GenCallback cb)   { _gen_end_cb = cb; }
 
 void generate() {
     gen_flag = 1;
 }
 
 void gen_tick() {
-    gen.tick();
-
     if (gen_flag) {
         gen_flag = 0;
+        if (_gen_start_cb) _gen_start_cb();
 
         gen.setScale(DISP_SCALE);
-        gen.generate(
+        bool ok = gen.generate(
             db[kk::gen_query],
             DISP_WIDTH * DISP_SCALE,
             DISP_HEIGHT * DISP_SCALE,
-            Text(gen.styles).getSub(db[kk::gen_style], ';'),
             db[kk::gen_negative]);
+
+        if (ok) gen_image_ready = true;
+        if (_gen_end_cb) _gen_end_cb();
     }
 }
