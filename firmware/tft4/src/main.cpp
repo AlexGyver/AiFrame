@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
+extern "C" {
+#include "user_interface.h"
+}
 #else
 #include <WiFi.h>
 #endif
@@ -14,6 +17,10 @@
 void setup() {
     Serial.begin(115200);
     Serial.println();
+#ifdef ESP8266
+    // BearSSL is CPU-heavy; 160 MHz greatly improves HTTPS reliability
+    system_update_cpu_freq(SYS_CPU_160MHZ);
+#endif
     WiFi.mode(WIFI_AP_STA);
 
     db_init();
@@ -62,7 +69,9 @@ void setup() {
     tft.println("Ready!");
     Serial.println("Ready!");
 
-    if (WiFi.status() == WL_CONNECTED) ota.checkUpdate();
+    // Do NOT call ota.checkUpdate() against AlexGyver/AiFrame —
+    // upstream project.json still points to Kandinsky firmware.bin (1.1/1.2).
+    // AutoOTA treats any different version as an update and would downgrade.
 }
 
 void loop() {

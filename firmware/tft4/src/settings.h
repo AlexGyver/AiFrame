@@ -1,5 +1,4 @@
 #pragma once
-#include <AutoOTA.h>
 #include <SettingsGyver.h>
 
 #include "config.h"
@@ -8,8 +7,6 @@
 #include "timer.h"
 SettingsGyver sett("AI Фоторамка v" F_VERSION, &db);
 sets::Timer gentmr;
-
-AutoOTA ota(F_VERSION, "AlexGyver/AiFrame/main/project.json");
 
 void init_tmr() {
     int prd = db[kk::auto_prd];
@@ -48,10 +45,10 @@ void build(sets::Builder& b) {
         }
     }
 
-    b.Image(SH("last_img"), "Последнее изображение", "/image.jpg");
-    b.HTML(SH("img_refresh"), "", "<script>setInterval(function(){var e=document.querySelector('img.image');if(e)e.src='/fetch?path=/image.jpg&t='+Date.now();},10000);</script>");
+    // No Image/HTML preview on ESP8266 — too heavy (OOM / Exception on save)
 
-    if (b.Confirm("update"_h)) ota.update();
+    // OTA from AlexGyver/AiFrame disabled — would reinstall Kandinsky build
+    // if (b.Confirm("update"_h)) ota.update();
 
     if (b.build.isAction()) {
         switch (b.build.id) {
@@ -61,12 +58,17 @@ void build(sets::Builder& b) {
                 break;
             case SH("wifi_save"):
                 db.update();
+                delay(100);
                 ESP.reset();
                 break;
-            case SH("api_save"):
-                gen.setKey(db[kk::poll_key]);
+            case SH("api_save"): {
+                String key = db[kk::poll_key];
+                gen.setKey(key);
                 db.update();
+                Serial.println(F("API key saved"));
                 break;
+            }
+            case kk::poll_key:
             case kk::gen_query:
             case kk::gen_negative:
                 db.update();
@@ -82,11 +84,6 @@ void build(sets::Builder& b) {
 
 void update(sets::Updater& u) {
     u.update(SH("status"), gen.status);
-    if (gen_image_ready) {
-        gen_image_ready = false;
-        u.update(SH("last_img"), String("/image.jpg"));
-    }
-    if (ota.hasUpdate()) u.update("update"_h, "Доступно обновление. Обновить прошивку?");
 }
 
 void sett_init() {
@@ -97,7 +94,6 @@ void sett_init() {
 }
 
 void sett_tick() {
-    ota.tick();
     sett.tick();
     if (gentmr) generate();
 }
