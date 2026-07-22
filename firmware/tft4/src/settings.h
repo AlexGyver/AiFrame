@@ -1,4 +1,5 @@
 #pragma once
+#include <AutoOTA.h>
 #include <SettingsGyver.h>
 
 #include "config.h"
@@ -7,6 +8,8 @@
 #include "timer.h"
 SettingsGyver sett("AI Фоторамка v" F_VERSION, &db);
 sets::Timer gentmr;
+
+AutoOTA ota(F_VERSION, "AlexGyver/AiFrame/main/project.json");
 
 void init_tmr() {
     int prd = db[kk::auto_prd];
@@ -18,6 +21,7 @@ void init_tmr() {
 void build(sets::Builder& b) {
     {
         sets::Group g(b, "Генерация");
+        b.Select(kk::gen_style, "Стиль", gen.styles);
         b.Input(kk::gen_query, "Промт");
         b.Input(kk::gen_negative, "Исключить");
         b.Label(SH("status"), "Статус", gen.status);
@@ -40,16 +44,15 @@ void build(sets::Builder& b) {
         {
             sets::Menu m(b, "API");
             sets::Group g(b);
-            b.Pass(kk::poll_key, "Pollinations Key");
+            b.Input(kk::kand_token, "Token");
+            b.Pass(kk::kand_secret, "Secret");
             b.Button(SH("api_save"), "Применить");
         }
     }
 
-    // No Image/HTML preview on ESP8266 — too heavy (OOM / Exception on save)
+    if (b.Confirm("update"_h)) ota.update();
 
-    // OTA from AlexGyver/AiFrame disabled — would reinstall Kandinsky build
-    // if (b.Confirm("update"_h)) ota.update();
-
+    // actions
     if (b.build.isAction()) {
         switch (b.build.id) {
             case SH("generate"):
@@ -58,25 +61,15 @@ void build(sets::Builder& b) {
                 break;
             case SH("wifi_save"):
                 db.update();
-                delay(100);
                 ESP.reset();
                 break;
-            case SH("api_save"): {
-                String key = db[kk::poll_key];
-                gen.setKey(key);
-                db.update();
-                Serial.println(F("API key saved"));
-                break;
-            }
-            case kk::poll_key:
-            case kk::gen_query:
-            case kk::gen_negative:
+            case SH("api_save"):
+                gen.setKey(db[kk::kand_token], db[kk::kand_secret]);
                 db.update();
                 break;
             case kk::auto_gen:
             case kk::auto_prd:
                 init_tmr();
-                db.update();
                 break;
         }
     }
@@ -84,6 +77,7 @@ void build(sets::Builder& b) {
 
 void update(sets::Updater& u) {
     u.update(SH("status"), gen.status);
+    if (ota.hasUpdate()) u.update("update"_h, "Доступно обновление. Обновить прошивку?");
 }
 
 void sett_init() {
@@ -94,6 +88,7 @@ void sett_init() {
 }
 
 void sett_tick() {
+    ota.tick();
     sett.tick();
     if (gentmr) generate();
 }

@@ -1,12 +1,4 @@
 #include <Arduino.h>
-#ifdef ESP8266
-#include <ESP8266WiFi.h>
-extern "C" {
-#include "user_interface.h"
-}
-#else
-#include <WiFi.h>
-#endif
 
 #include "config.h"
 #include "db.h"
@@ -17,25 +9,21 @@ extern "C" {
 void setup() {
     Serial.begin(115200);
     Serial.println();
-#ifdef ESP8266
-    // BearSSL is CPU-heavy; 160 MHz greatly improves HTTPS reliability
-    system_update_cpu_freq(SYS_CPU_160MHZ);
-#endif
     WiFi.mode(WIFI_AP_STA);
 
     db_init();
     sett_init();
     tft_init();
 
-    gen.setKey(db[kk::poll_key]);
-    gen.setFS(LittleFS);
+    // ======= AI =======
+    gen.setKey(db[kk::kand_token], db[kk::kand_secret]);
 
     // ======= AP =======
-    WiFi.softAP("AiFrame AP");
-
+    WiFi.softAP("Kandinsky AP");
+    
     tft.print("AiFrame v");
     tft.println(F_VERSION);
-    tft.println("AiFrame AP");
+    tft.println("Kandinsky AP");
     tft.print("IP: ");
     tft.println(WiFi.softAPIP());
     tft.println();
@@ -66,12 +54,31 @@ void setup() {
 
     if (!wifi_ok) return;
 
+    // ======= STYLES =======
+    tft.println("Gettings styles...");
+    if (gen.getStyles()) {
+        tft.print("OK. Styles: ");
+        tft.println(gen.styles);
+    } else {
+        tft.print("Error! ");
+        tft.println(gen.styles);
+    }
+    tft.println();
+
+    // ======= MODEL =======
+    tft.println("Init AI model...");
+    if (gen.begin()) {
+        tft.print("OK. Model: ");
+        tft.println(gen.modelID());
+    } else {
+        tft.println("Error!");
+    }
+    tft.println();
+
     tft.println("Ready!");
     Serial.println("Ready!");
 
-    // Do NOT call ota.checkUpdate() against AlexGyver/AiFrame —
-    // upstream project.json still points to Kandinsky firmware.bin (1.1/1.2).
-    // AutoOTA treats any different version as an update and would downgrade.
+    if (WiFi.status() == WL_CONNECTED) ota.checkUpdate();
 }
 
 void loop() {
